@@ -50,7 +50,7 @@ This also means the printer doesn't need to be directly exposed to the internet.
 
 I've currently got a live test version running on my website:
 
-**[Send me an anonymous message](https://ping.thedreamer.nl)**
+**[Send me an anonymous message](https://www.thedreamer.nl)**
 
 Send something nice, weird, interesting, or completely random.
 
