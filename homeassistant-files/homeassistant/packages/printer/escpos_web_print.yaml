@@ -1,0 +1,498 @@
+###############################################################################
+# ESC/POS WEB PRINTING
+#
+# Printer:
+#   notify.td80
+#
+# Paper status:
+#   sensor.td80_paper_status
+#
+# Possible paper states:
+#   ok
+#   low
+#   out
+#
+# Phone:
+#   notify.mobile_app_< HA USER >
+#
+# Matrix:
+#   #< CHANNEL >:< SERVER >
+###############################################################################
+
+input_number:
+
+  escpos_pending_prints:
+    name: "ESC/POS Pending Prints"
+    min: 0
+    max: 100
+    step: 1
+    mode: box
+
+input_text:
+
+  escpos_pending_jobs:
+    name: "ESC/POS Pending Jobs"
+    max: 255
+    mode: text
+
+script:
+
+  ###########################################################################
+  # WEB PRINT - TEXT
+  ###########################################################################
+
+  escpos_print_text:
+    alias: "ESC/POS - Web Print Text"
+    description: "Print a web text message with paper monitoring."
+    mode: queued
+    max: 10
+
+    fields:
+
+      ticket:
+        name: Ticket
+        required: true
+        selector:
+          text:
+
+      datetime:
+        name: Date and time
+        required: true
+        selector:
+          text:
+
+      ip:
+        name: IP address
+        required: true
+        selector:
+          text:
+
+      text:
+        name: Message
+        required: true
+        selector:
+          text:
+
+    sequence:
+
+      #######################################################################
+      # MATRIX - ALWAYS LOG THE JOB
+      #######################################################################
+
+      - action: notify.matrix
+        data:
+          target:
+            - "#< CHANNEL >:< SERVER >"
+          message: |
+            🖨️ **WEB PRINT — TEXT**
+
+            **Ticket:** #{{ ticket }}
+            **Date:** {{ datetime }}
+            **IP:** {{ ip }}
+
+            **Paper:** {{ states('sensor.td80_paper_status') }}
+
+            **Message:**
+            {{ text }}
+
+      #######################################################################
+      # PAPER OUT
+      #######################################################################
+
+      - if:
+          - condition: state
+            entity_id: sensor.td80_paper_status
+            state: "out"
+
+        then:
+
+          #####################################################################
+          # INCREMENT PENDING COUNTER
+          #####################################################################
+
+          - action: input_number.set_value
+            target:
+              entity_id: input_number.escpos_pending_prints
+            data:
+              value: >
+                {{ states('input_number.escpos_pending_prints') | int(0) + 1 }}
+
+          #####################################################################
+          # PHONE
+          #####################################################################
+
+          - action: notify.mobile_app_< HA USER >
+            data:
+              title: "🚨 Printer out of paper"
+              message: >
+                Web print #{{ ticket }} could not be printed because the
+                TD80 is out of paper.
+
+                {{ text }}
+
+          #####################################################################
+          # MATRIX
+          #####################################################################
+
+          - action: notify.matrix
+            data:
+              target:
+                - "#< CHANNEL >:< SERVER >"
+              message: |
+                🚨 **PRINTER OUT OF PAPER**
+                Ticket **#{{ ticket }}** could not be printed.
+
+        else:
+
+          #####################################################################
+          # PRINT
+          #####################################################################
+
+          - action: escpos_printer.print_text_utf8
+            target:
+              entity_id: notify.td80
+            data:
+              text: |
+                ========================================
+                MESSAGE #{{ ticket }}
+                ========================================
+                IP: {{ ip }}
+                {{ datetime }}
+                ----------------------------------------
+
+                {{ text }}
+
+                ----------------------------------------
+              align: left
+              feed: 2
+              cut: none
+
+          #####################################################################
+          # LOW PAPER WARNING
+          #####################################################################
+
+          - if:
+              - condition: state
+                entity_id: sensor.td80_paper_status
+                state: "low"
+
+            then:
+
+              - action: notify.mobile_app_< HA USER >
+                data:
+                  title: "⚠️ Printer paper low"
+                  message: >
+                    Web print #{{ ticket }} was printed, but the TD80 reports
+                    low paper.
+
+              - action: notify.matrix
+                data:
+                  target:
+                    - "#< CHANNEL >:< SERVER >"
+                  message: |
+                    ⚠️ **TD80 PAPER LOW**
+                    Ticket **#{{ ticket }}** was printed.
+                    Please replace the paper soon.
+
+      #######################################################################
+      # PHONE WHEN AWAY
+      #######################################################################
+
+      - if:
+          - condition: template
+            value_template: >
+              {{ states('device_tracker.< HA USER >') != 'home' }}
+        then:
+          - action: notify.mobile_app_< HA USER >
+            data:
+              title: "🖨️ Web print received"
+              message: >
+                Ticket #{{ ticket }} was sent to the printer.
+                {{ text }}
+                {{ datetime }}
+              data:
+                tag: "web_print_{{ ticket }}"
+                group: "web_print"
+
+  ###########################################################################
+  # WEB PRINT - IMAGE
+  ###########################################################################
+
+  escpos_print_image:
+    alias: "ESC/POS - Web Print Image"
+    description: "Print a web image with paper monitoring."
+    mode: queued
+    max: 10
+
+    fields:
+
+      ticket:
+        name: Ticket
+        required: true
+        selector:
+          text:
+
+      datetime:
+        name: Date and time
+        required: true
+        selector:
+          text:
+
+      ip:
+        name: IP address
+        required: true
+        selector:
+          text:
+
+      image:
+        name: Image
+        required: true
+        selector:
+          text:
+
+    sequence:
+
+      #######################################################################
+      # MATRIX - ALWAYS LOG THE JOB
+      #######################################################################
+
+      - action: notify.matrix
+        data:
+          target:
+            - "#< CHANNEL >:< SERVER >"
+          message: |
+            🖨️ **WEB PRINT — IMAGE**
+
+            **Ticket:** #{{ ticket }}
+            **Date:** {{ datetime }}
+            **IP:** {{ ip }}
+
+            **Paper:** {{ states('sensor.td80_paper_status') }}
+
+            An image was sent to the print system.
+
+      #######################################################################
+      # PAPER OUT
+      #######################################################################
+
+      - if:
+          - condition: state
+            entity_id: sensor.td80_paper_status
+            state: "out"
+
+        then:
+
+          #####################################################################
+          # INCREMENT PENDING COUNTER
+          #####################################################################
+
+          - action: input_number.set_value
+            target:
+              entity_id: input_number.escpos_pending_prints
+            data:
+              value: >
+                {{ states('input_number.escpos_pending_prints') | int(0) + 1 }}
+
+          #####################################################################
+          # PHONE
+          #####################################################################
+
+          - action: notify.mobile_app_< HA USER >
+            data:
+              title: "🚨 Printer out of paper"
+              message: >
+                Web image #{{ ticket }} could not be printed because the
+                TD80 is out of paper.
+
+          #####################################################################
+          # MATRIX
+          #####################################################################
+
+          - action: notify.matrix
+            data:
+              target:
+                - "#< CHANNEL >:< SERVER >"
+              message: |
+                🚨 **PRINTER OUT OF PAPER**
+                Image ticket **#{{ ticket }}** could not be printed.
+
+        else:
+
+          #######################################################################
+          # IMAGE PRINT
+          #######################################################################
+
+          - action: escpos_printer.print_text_utf8
+            target:
+              entity_id: notify.td80
+            data:
+              text: |
+                ========================================
+                WEB IMAGE #{{ ticket }} 
+                ========================================
+                IP: {{ ip }}
+                {{ datetime }}
+                ----------------------------------------
+              align: left
+              feed: 2
+
+          - action: escpos_printer.print_image
+            target:
+              entity_id: notify.td80
+            data:
+              image: "{{ image }}"
+              image_width: 576
+              rotation: 0
+              dither: floyd-steinberg
+              autocontrast: true
+              center: true
+              high_density: true
+              feed: 2
+              cut: none
+
+          - action: escpos_printer.print_text_utf8
+            target:
+              entity_id: notify.td80
+            data:
+              text: |
+                ----------------------------------------
+              align: left
+              feed: 2
+              cut: none
+
+          #######################################################################
+          # LOW PAPER WARNING
+          #######################################################################
+
+          - if:
+              - condition: state
+                entity_id: sensor.td80_paper_status
+                state: "low"
+
+            then:
+
+              - action: notify.mobile_app_< HA USER >
+                data:
+                  title: "⚠️ Printer paper low"
+                  message: >
+                    Web image #{{ ticket }} was printed, but the TD80 reports
+                    low paper.
+
+              - action: notify.matrix
+                data:
+                  target:
+                    - "#< CHANNEL >:< SERVER >"
+                  message: |
+                    ⚠️ **TD80 PAPER LOW**
+                    Image ticket **#{{ ticket }}** was printed.
+                    Please replace the paper soon.
+
+      #######################################################################
+      # PHONE WHEN AWAY
+      #######################################################################
+
+      - if:
+          - condition: template
+            value_template: >
+              {{ states('device_tracker.< HA USER >') != 'home' }}
+
+        then:
+
+          - action: notify.mobile_app_< HA USER >
+            data:
+              title: "🖨️ Web image received"
+              message: >
+                Image ticket #{{ ticket }} was sent to the printer.
+                {{ datetime }}
+              data:
+                tag: "web_print_{{ ticket }}"
+                group: "web_print"
+
+
+###############################################################################
+# PAPER STATUS AUTOMATION
+###############################################################################
+
+automation:
+
+  ###########################################################################
+  # PAPER INSERTED AGAIN
+  ###########################################################################
+
+  - id: escpos_paper_available
+    alias: "ESC/POS - Paper Available Again"
+    description: "Notify when paper becomes available again."
+    mode: single
+
+    trigger:
+
+      - trigger: state
+        entity_id: sensor.td80_paper_status
+        from: "out"
+        to:
+          - "ok"
+          - "low"
+
+    condition:
+
+      - condition: numeric_state
+        entity_id: input_number.escpos_pending_prints
+        above: 0
+
+    action:
+
+      #######################################################################
+      # PHONE
+      #######################################################################
+
+      - action: notify.mobile_app_< HA USER >
+        data:
+          title: "🖨️ Printer paper available"
+          message: >
+            The TD80 has paper again.
+
+      #######################################################################
+      # MATRIX
+      #######################################################################
+
+      - action: notify.matrix
+        data:
+          target:
+            - "#< CHANNEL >:< SERVER >"
+          message: |
+            🖨️ **TD80 PAPER AVAILABLE**
+            Paper status:
+            **{{ states('sensor.td80_paper_status') }}**
+
+  ###########################################################################
+  # LOW PAPER
+  ###########################################################################
+
+  - id: escpos_paper_low
+    alias: "ESC/POS - Paper Low"
+    description: "Warn when the TD80 reports low paper."
+    mode: single
+
+    trigger:
+
+      - trigger: state
+        entity_id: sensor.td80_paper_status
+        to: "low"
+
+    action:
+
+      - action: notify.mobile_app_< HA USER >
+        data:
+          title: "⚠️ TD80 paper low"
+          message: >
+            The thermal printer is running low on paper.
+
+      - action: notify.matrix
+        data:
+          target:
+            - "#< CHANNEL >:< SERVER >"
+          message: |
+            ⚠️ **TD80 PAPER LOW**
+            The thermal printer is running low on paper.
+            Current status:
+            **{{ states('sensor.td80_paper_status') }}**
