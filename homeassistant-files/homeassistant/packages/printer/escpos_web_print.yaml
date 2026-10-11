@@ -67,6 +67,12 @@ script:
         selector:
           text:
 
+      city:
+        name: City
+        required: true
+        selector:
+          text:
+
       text:
         name: Message
         required: true
@@ -89,6 +95,7 @@ script:
             **Ticket:** #{{ ticket }}
             **Date:** {{ datetime }}
             **IP:** {{ ip }}
+            **City:** {{ city }}
 
             **Paper:** {{ states('sensor.td80_paper_status') }}
 
@@ -154,10 +161,10 @@ script:
             data:
               text: |
                 ========================================
-                MESSAGE #{{ ticket }}
+                MESSAGE #{{ ticket }} / {{ datetime }}
                 ========================================
                 IP: {{ ip }}
-                {{ datetime }}
+                Location: {{ city }}
                 ----------------------------------------
 
                 {{ text }}
@@ -244,6 +251,12 @@ script:
         selector:
           text:
 
+      city:
+        name: City
+        required: true
+        selector:
+          text:
+
       image:
         name: Image
         required: true
@@ -266,6 +279,7 @@ script:
             **Ticket:** #{{ ticket }}
             **Date:** {{ datetime }}
             **IP:** {{ ip }}
+            **City:** {{ city }}
 
             **Paper:** {{ states('sensor.td80_paper_status') }}
 
@@ -328,10 +342,10 @@ script:
             data:
               text: |
                 ========================================
-                WEB IMAGE #{{ ticket }} 
+                WEB IMAGE #{{ ticket }} / {{ datetime }}
                 ========================================
                 IP: {{ ip }}
-                {{ datetime }}
+                Location: {{ city }}
                 ----------------------------------------
               align: left
               feed: 2
