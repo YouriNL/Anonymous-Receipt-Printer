@@ -50,7 +50,7 @@ This also means the printer doesn't need to be directly exposed to the internet.
 
 I've currently got a live test version running on my website:
 
-**[Send me an anonymous message](https://www.thedreamer.nl)**
+**[Send me an anonymous message](https://ping.thedreamer.nl)**
 
 Send something nice, weird, interesting, or completely random.
 
@@ -103,6 +103,10 @@ Check out his original project and write-up:
 - [Video: I Invited Strangers to Message Me Through a Receipt Printer](https://www.youtube.com/watch?v=7KtyekivpRM)
 
 Thanks for the inspiration, Andrew!
+
+Other notable Projects: 
+[Teddy Warner's Quotes](https://theodore.net/projects/Quotes/) - [Video](https://www.youtube.com/watch?v=b8bMIGniOwY)
+[Nutty's Printer Bot](https://nutty.gg/en-eur/products/printer-bot) - [Video](https://www.youtube.com/watch?v=hzOaKttqUNw) 
 
 ---
 

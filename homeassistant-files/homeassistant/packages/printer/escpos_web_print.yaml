@@ -142,6 +142,38 @@ script:
                 🚨 **PRINTER OUT OF PAPER**
                 Ticket **#{{ ticket }}** could not be printed.
 
+          #######################################################################
+          # WAIT FOR REFIL
+          #######################################################################
+
+          - action:
+              wait_template: "{{ is_state('sensor.td80_paper_status', 'ok') OR {{ is_state('sensor.td80_paper_status', 'low') }}"
+              timeout: "06:00:00"
+              continue_on_timeout: false
+
+          #####################################################################
+          # PRINT
+          #####################################################################
+
+          - action: escpos_printer.print_text_utf8
+            target:
+              entity_id: notify.td80
+            data:
+              text: |
+                ========================================
+                MESSAGE #{{ ticket }}
+                ========================================
+                IP: {{ ip }}
+                {{ datetime }}
+                ----------------------------------------
+
+                {{ text }}
+
+                ----------------------------------------
+              align: left
+              feed: 2
+              cut: none
+
         else:
 
           #####################################################################
@@ -315,6 +347,57 @@ script:
               message: |
                 🚨 **PRINTER OUT OF PAPER**
                 Image ticket **#{{ ticket }}** could not be printed.
+
+          #######################################################################
+          # WAIT FOR REFIL
+          #######################################################################
+
+          - action:
+              wait_template: "{{ is_state('sensor.td80_paper_status', 'ok') OR {{ is_state('sensor.td80_paper_status', 'low') }}"
+              timeout: "06:00:00"
+              continue_on_timeout: false
+
+          #######################################################################
+          # IMAGE PRINT
+          #######################################################################
+
+          - action: escpos_printer.print_text_utf8
+            target:
+              entity_id: notify.td80
+            data:
+              text: |
+                ========================================
+                WEB IMAGE #{{ ticket }} 
+                ========================================
+                IP: {{ ip }}
+                {{ datetime }}
+                ----------------------------------------
+              align: left
+              feed: 2
+
+          - action: escpos_printer.print_image
+            target:
+              entity_id: notify.td80
+            data:
+              image: "{{ image }}"
+              image_width: 576
+              rotation: 0
+              dither: floyd-steinberg
+              autocontrast: true
+              center: true
+              high_density: true
+              feed: 2
+              cut: none
+
+          - action: escpos_printer.print_text_utf8
+            target:
+              entity_id: notify.td80
+            data:
+              text: |
+                ----------------------------------------
+              align: left
+              feed: 2
+              cut: none
 
         else:
 

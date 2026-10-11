@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 /*
  * print.php
- *
- * Receives print jobs from the web page and sends them
- * to Home Assistant through the REST API.
+ * Receives print jobs from thedreamer.nl and sends them to Home Assistant through the REST API.
  */
 
 
@@ -18,6 +16,12 @@ $HA_URL = 'https://< HA URL >';
 
 $HA_TOKEN = '< LONG LIVED TOKEM >';
 
+/* Spam and receipt-printer settings. */
+const STATE_DIR = __DIR__ . '/runtime';
+const RATE_WINDOW_SECONDS = 3600;
+const RATE_MAX_POINTS = 20;
+const MIN_SECONDS_BETWEEN_JOBS = 10;
+const DUPLICATE_WINDOW_SECONDS = 900;
 
 /* =========================================================
  * CORS
@@ -40,13 +44,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-
 /* =========================================================
  * RESPONSE
  * ========================================================= */
 
 header('Content-Type: application/json; charset=utf-8');
-
 
 function jsonResponse(
     bool $success,
@@ -69,7 +71,6 @@ function jsonResponse(
     exit;
 }
 
-
 /* =========================================================
  * TEXT CLEANING
  * ========================================================= */
@@ -82,7 +83,6 @@ function cleanText(string $text): string
         $text
     ) ?? '';
 }
-
 
 /* =========================================================
  * CLIENT IP
@@ -111,6 +111,97 @@ function getClientIp(): string
     return 'unknown';
 }
 
+/* =========================================================
+ * SPAM CONTROL, RATE LIMITING AND GEOIP
+ * ========================================================= */
+function ensureStateDir(): void
+{
+    if (!is_dir(STATE_DIR) && !@mkdir(STATE_DIR, 0750, true) && !is_dir(STATE_DIR)) {
+        throw new RuntimeException('Runtime directory is not writable.');
+    }
+}
+
+function spamReason(string $text): ?string
+{
+    if (preg_match('/(.)\1{19,}/us', $text)) {
+        return 'Excessive repeated characters detected.';
+    }
+    if (preg_match_all('/\b(?:https?:\/\/|www\.)\S+/iu', $text) > 3) {
+        return 'Too many links detected.';
+    }
+    return null;
+}
+
+function enforceRateLimit(string $ip, string $type, string $fingerprint): void
+{
+    ensureStateDir();
+    $file = STATE_DIR . '/rate-' . hash('sha256', $ip) . '.json';
+    $lock = fopen($file . '.lock', 'c+');
+    if ($lock === false || !flock($lock, LOCK_EX)) {
+        throw new RuntimeException('Could not lock rate-limit state.');
+    }
+
+    try {
+        $now = time();
+        $raw = is_file($file) ? @file_get_contents($file) : false;
+        $state = is_string($raw) ? json_decode($raw, true) : [];
+        $jobs = is_array($state['jobs'] ?? null) ? $state['jobs'] : [];
+        $jobs = array_values(array_filter($jobs, static function ($job) use ($now): bool {
+            return is_array($job) && (int)($job['time'] ?? 0) > $now - RATE_WINDOW_SECONDS;
+        }));
+
+        if ($jobs !== []) {
+            $last = end($jobs);
+            $wait = MIN_SECONDS_BETWEEN_JOBS - ($now - (int)($last['time'] ?? 0));
+            if ($wait > 0) {
+                jsonResponse(false, ['error' => "Please wait {$wait} seconds before printing again."], 429);
+            }
+        }
+
+        foreach ($jobs as $job) {
+            if (($job['fingerprint'] ?? '') === $fingerprint
+                && (int)($job['time'] ?? 0) > $now - DUPLICATE_WINDOW_SECONDS) {
+                jsonResponse(false, ['error' => 'This print job was already submitted recently.'], 429);
+            }
+        }
+
+        $used = array_sum(array_map(static fn($job): int => (int)($job['points'] ?? 1), $jobs));
+        $cost = $type === 'image' ? 4 : 1;
+        if ($used + $cost > RATE_MAX_POINTS) {
+            jsonResponse(false, ['error' => 'Hourly print limit reached. Please try again later.'], 429);
+        }
+
+        $jobs[] = ['time' => $now, 'points' => $cost, 'fingerprint' => $fingerprint];
+        file_put_contents($file, json_encode(['jobs' => $jobs]), LOCK_EX);
+    } finally {
+        flock($lock, LOCK_UN);
+        fclose($lock);
+    }
+}
+
+function getGeoIpCityFromNginx(): string
+{
+    /*
+     * Nginx should overwrite this header, for example:
+     * proxy_set_header X-GeoIP-City $geoip2_city_name;
+     *
+     * PHP exposes that request header as HTTP_X_GEOIP_CITY.
+     */
+    $city = $_SERVER['HTTP_X_GEOIP_CITY'] ?? '';
+
+    if (!is_string($city)) {
+        return 'Unknown';
+    }
+
+    $city = trim(rawurldecode($city));
+    $city = preg_replace('/[^\p{L}\p{M}\p{N} .,_\'\-]/u', '', $city) ?? '';
+
+    if ($city === '') {
+        return 'Unknown';
+    }
+
+    return mb_substr($city, 0, 100, 'UTF-8');
+}
 
 /* =========================================================
  * HOME ASSISTANT API
@@ -198,7 +289,6 @@ function callHomeAssistant(
     ];
 }
 
-
 /* =========================================================
  * REQUEST VALIDATION
  * ========================================================= */
@@ -213,7 +303,6 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         405
     );
 }
-
 
 /*
  * Maximum request size: 15 MB.
@@ -232,7 +321,6 @@ if ($contentLength > 15 * 1024 * 1024) {
         413
     );
 }
-
 
 /* =========================================================
  * READ JSON
@@ -269,7 +357,6 @@ if (!is_array($data)) {
     );
 }
 
-
 /* =========================================================
  * JOB TYPE
  * ========================================================= */
@@ -279,7 +366,6 @@ $type = $data['type'] ?? '';
 if (!is_string($type)) {
     $type = '';
 }
-
 
 if (!in_array(
     $type,
@@ -299,7 +385,6 @@ if (!in_array(
     );
 }
 
-
 /* =========================================================
  * TICKET INFORMATION
  * ========================================================= */
@@ -311,7 +396,6 @@ if (!in_array(
  */
 $ticket = time();
 
-
 /*
  * Amsterdam local date/time.
  */
@@ -320,17 +404,14 @@ $dateTime = new DateTimeImmutable(
     new DateTimeZone('Europe/Amsterdam')
 );
 
-
 $formattedDateTime = $dateTime->format(
     'Y-m-d H:i:s'
 );
-
 
 /*
  * Client IP.
  */
 $clientIp = getClientIp();
-
 
 /* =========================================================
  * TEXT PRINT
@@ -351,12 +432,10 @@ if ($type === 'text') {
         );
     }
 
-
     /*
      * Remove whitespace at beginning/end.
      */
     $text = trim($text);
-
 
     /*
      * Do not allow an empty message.
@@ -371,7 +450,6 @@ if ($type === 'text') {
             400
         );
     }
-
 
     /*
      * Maximum 1024 UTF-8 characters.
@@ -388,7 +466,6 @@ if ($type === 'text') {
         );
     }
 
-
     /*
      * Remove unwanted control characters.
      *
@@ -396,6 +473,18 @@ if ($type === 'text') {
      */
     $text = cleanText($text);
 
+    $spam = spamReason($text);
+    if ($spam !== null) {
+        jsonResponse(false, ['error' => $spam], 400);
+    }
+
+    enforceRateLimit(
+        $clientIp,
+        'text',
+        hash('sha256', 'text:' . mb_strtolower($text, 'UTF-8'))
+    );
+
+    $city = getGeoIpCityFromNginx();
 
     /*
      * Home Assistant script:
@@ -406,7 +495,6 @@ if ($type === 'text') {
         $HA_URL .
         '/api/services/script/escpos_print_text';
 
-
     $payload = [
         'ticket' => (string) $ticket,
 
@@ -414,9 +502,10 @@ if ($type === 'text') {
 
         'ip' => $clientIp,
 
+        'city' => $city,
+
         'text' => $text
     ];
-
 
     try {
 
@@ -443,7 +532,6 @@ if ($type === 'text') {
         );
     }
 
-
     /*
      * Successful print.
      */
@@ -454,7 +542,6 @@ if ($type === 'text') {
         ]
     );
 }
-
 
 /* =========================================================
  * IMAGE PRINT
@@ -473,7 +560,6 @@ if ($type === 'image') {
             400
         );
     }
-
 
     /*
      * Accept an image data URI.
@@ -494,7 +580,6 @@ if ($type === 'image') {
         );
     }
 
-
     /*
      * Decode base64.
      */
@@ -513,7 +598,6 @@ if ($type === 'image') {
         );
     }
 
-
     /*
      * Protect the PHP server from enormous uploads.
      */
@@ -527,6 +611,12 @@ if ($type === 'image') {
         );
     }
 
+    enforceRateLimit(
+        $clientIp,
+        'image',
+        hash('sha256', 'image:' . $binaryImage)
+    );
+    $city = getGeoIpCityFromNginx();
 
     /*
      * Verify that this is actually an image.
@@ -545,7 +635,6 @@ if ($type === 'image') {
         );
     }
 
-
     /*
      * Create GD image.
      */
@@ -562,7 +651,6 @@ if ($type === 'image') {
             400
         );
     }
-
 
     /* =====================================================
      * EXIF ORIENTATION
@@ -671,6 +759,22 @@ if ($type === 'image') {
         }
     }
 
+    /*
+     * Rotate normal landscape photographs to portrait for 80 mm paper.
+     * Extreme panoramas (ratio 2:1 or wider) are left unchanged.
+     */
+    $landscapeWidth = imagesx($source);
+    $landscapeHeight = imagesy($source);
+    if (
+        $landscapeWidth > $landscapeHeight &&
+        ($landscapeWidth / max(1, $landscapeHeight)) < 2.0
+    ) {
+        $rotated = imagerotate($source, -90, 0xFFFFFF);
+        if ($rotated !== false) {
+            imagedestroy($source);
+            $source = $rotated;
+        }
+    }
 
     /* =====================================================
      * RESIZE TO 80 MM PRINTER WIDTH
@@ -680,7 +784,6 @@ if ($type === 'image') {
     $sourceHeight = imagesy($source);
 
     $maxWidth = 576;
-
 
     if ($sourceWidth > $maxWidth) {
 
@@ -697,7 +800,6 @@ if ($type === 'image') {
         $newHeight = $sourceHeight;
     }
 
-
     /*
      * Create resized image.
      */
@@ -705,7 +807,6 @@ if ($type === 'image') {
         $newWidth,
         $newHeight
     );
-
 
     /*
      * White background.
@@ -726,7 +827,6 @@ if ($type === 'image') {
         $white
     );
 
-
     /*
      * Preserve aspect ratio.
      */
@@ -743,9 +843,7 @@ if ($type === 'image') {
         $sourceHeight
     );
 
-
     imagedestroy($source);
-
 
     /* =====================================================
      * COMPRESS IMAGE
@@ -765,7 +863,6 @@ if ($type === 'image') {
     $maxBase64Length = 240000;
 
     $jpegData = null;
-
 
     /*
      * Try progressively lower JPEG quality.
@@ -801,7 +898,6 @@ if ($type === 'image') {
         }
     }
 
-
     /*
      * If quality reduction was not enough, reduce the
      * image dimensions as well.
@@ -810,7 +906,6 @@ if ($type === 'image') {
 
         $currentWidth = $newWidth;
         $currentHeight = $newHeight;
-
 
         while (
             $jpegData === null &&
@@ -825,12 +920,10 @@ if ($type === 'image') {
                 $currentHeight * 0.85
             );
 
-
             $smaller = imagecreatetruecolor(
                 $currentWidth,
                 $currentHeight
             );
-
 
             $white = imagecolorallocate(
                 $smaller,
@@ -846,7 +939,6 @@ if ($type === 'image') {
                 $white
             );
 
-
             imagecopyresampled(
                 $smaller,
                 $output,
@@ -859,7 +951,6 @@ if ($type === 'image') {
                 $newWidth,
                 $newHeight
             );
-
 
             for (
                 $quality = 70;
@@ -885,7 +976,6 @@ if ($type === 'image') {
                 $candidateBase64 =
                     base64_encode($candidate);
 
-
                 if (
                     strlen($candidateBase64) <=
                     $maxBase64Length
@@ -898,14 +988,11 @@ if ($type === 'image') {
                 }
             }
 
-
             imagedestroy($smaller);
         }
     }
 
-
     imagedestroy($output);
-
 
     /*
      * We could not make the image small enough.
@@ -922,14 +1009,12 @@ if ($type === 'image') {
         );
     }
 
-
     /*
      * Create final JPEG data URI.
      */
     $normalizedImage =
         'data:image/jpeg;base64,' .
         $jpegData;
-
 
     /* =====================================================
      * HOME ASSISTANT
@@ -939,7 +1024,6 @@ if ($type === 'image') {
         $HA_URL .
         '/api/services/script/escpos_print_image';
 
-
     $payload = [
         'ticket' => (string) $ticket,
 
@@ -947,9 +1031,10 @@ if ($type === 'image') {
 
         'ip' => $clientIp,
 
+        'city' => $city,
+
         'image' => $normalizedImage
     ];
-
 
     try {
 
@@ -975,7 +1060,6 @@ if ($type === 'image') {
             502
         );
     }
-
 
     /*
      * Successful print.
