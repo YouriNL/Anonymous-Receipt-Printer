@@ -13,10 +13,10 @@
 #   out
 #
 # Phone:
-#   notify.mobile_app_iruoynl
+#   notify.mobile_app_< HA USER >
 #
 # Matrix:
-#   #ha_notifications:thedreamer.nl
+#   #< CHANNEL >:< SERVER >
 ###############################################################################
 
 input_number:
@@ -88,7 +88,7 @@ script:
       - action: notify.matrix
         data:
           target:
-            - "#ha_notifications:thedreamer.nl"
+            - "#< CHANNEL >:< SERVER >"
           message: |
             🖨️ **WEB PRINT — TEXT**
 
@@ -128,7 +128,7 @@ script:
           # PHONE
           #####################################################################
 
-          - action: notify.mobile_app_iruoynl
+          - action: notify.mobile_app_< HA USER >
             data:
               title: "🚨 Printer out of paper"
               message: >
@@ -144,7 +144,7 @@ script:
           - action: notify.matrix
             data:
               target:
-                - "#ha_notifications:thedreamer.nl"
+                - "#< CHANNEL >:< SERVER >"
               message: |
                 🚨 **PRINTER OUT OF PAPER**
                 Ticket **#{{ ticket }}** could not be printed.
@@ -185,7 +185,7 @@ script:
 
             then:
 
-              - action: notify.mobile_app_iruoynl
+              - action: notify.mobile_app_< HA USER >
                 data:
                   title: "⚠️ Printer paper low"
                   message: >
@@ -195,7 +195,7 @@ script:
               - action: notify.matrix
                 data:
                   target:
-                    - "#ha_notifications:thedreamer.nl"
+                    - "#< CHANNEL >:< SERVER >"
                   message: |
                     ⚠️ **TD80 PAPER LOW**
                     Ticket **#{{ ticket }}** was printed.
@@ -210,7 +210,7 @@ script:
             value_template: >
               {{ states('device_tracker.iruoynl') != 'home' }}
         then:
-          - action: notify.mobile_app_iruoynl
+          - action: notify.mobile_app_< HA USER >
             data:
               title: "🖨️ Web print received"
               message: >
@@ -272,7 +272,7 @@ script:
       - action: notify.matrix
         data:
           target:
-            - "#ha_notifications:thedreamer.nl"
+            - "#< CHANNEL >:< SERVER >"
           message: |
             🖨️ **WEB PRINT — IMAGE**
 
@@ -311,7 +311,7 @@ script:
           # PHONE
           #####################################################################
 
-          - action: notify.mobile_app_iruoynl
+          - action: notify.mobile_app_< HA USER >
             data:
               title: "🚨 Printer out of paper"
               message: >
@@ -325,7 +325,7 @@ script:
           - action: notify.matrix
             data:
               target:
-                - "#ha_notifications:thedreamer.nl"
+                - "#< CHANNEL >:< SERVER >"
               message: |
                 🚨 **PRINTER OUT OF PAPER**
                 Image ticket **#{{ ticket }}** could not be printed.
@@ -385,7 +385,7 @@ script:
 
             then:
 
-              - action: notify.mobile_app_iruoynl
+              - action: notify.mobile_app_< HA USER >
                 data:
                   title: "⚠️ Printer paper low"
                   message: >
@@ -395,7 +395,7 @@ script:
               - action: notify.matrix
                 data:
                   target:
-                    - "#ha_notifications:thedreamer.nl"
+                    - "#< CHANNEL >:< SERVER >"
                   message: |
                     ⚠️ **TD80 PAPER LOW**
                     Image ticket **#{{ ticket }}** was printed.
@@ -412,7 +412,7 @@ script:
 
         then:
 
-          - action: notify.mobile_app_iruoynl
+          - action: notify.mobile_app_< HA USER >
             data:
               title: "🖨️ Web image received"
               message: >
@@ -459,7 +459,7 @@ automation:
       # PHONE
       #######################################################################
 
-      - action: notify.mobile_app_iruoynl
+      - action: notify.mobile_app_< HA USER >
         data:
           title: "🖨️ Printer paper available"
           message: >
@@ -472,7 +472,7 @@ automation:
       - action: notify.matrix
         data:
           target:
-            - "#ha_notifications:thedreamer.nl"
+            - "#< CHANNEL >:< SERVER >"
           message: |
             🖨️ **TD80 PAPER AVAILABLE**
             Paper status:
@@ -495,7 +495,7 @@ automation:
 
     action:
 
-      - action: notify.mobile_app_iruoynl
+      - action: notify.mobile_app_< HA USER >
         data:
           title: "⚠️ TD80 paper low"
           message: >
@@ -504,7 +504,7 @@ automation:
       - action: notify.matrix
         data:
           target:
-            - "#ha_notifications:thedreamer.nl"
+            - "#< CHANNEL >:< SERVER >"
           message: |
             ⚠️ **TD80 PAPER LOW**
             The thermal printer is running low on paper.
