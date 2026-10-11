@@ -66,6 +66,12 @@ script:
         required: true
         selector:
           text:
+          
+      city:
+        name: City
+        required: true
+        selector:
+          text:
 
       text:
         name: Message
@@ -272,6 +278,12 @@ script:
 
       ip:
         name: IP address
+        required: true
+        selector:
+          text:
+
+      city:
+        name: City
         required: true
         selector:
           text:
