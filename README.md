@@ -105,8 +105,8 @@ Check out his original project and write-up:
 Thanks for the inspiration, Andrew!
 
 Other notable Projects: 
-[Teddy Warner's Quotes](https://theodore.net/projects/Quotes/) - [Video](https://www.youtube.com/watch?v=b8bMIGniOwY)
-[Nutty's Printer Bot](https://nutty.gg/en-eur/products/printer-bot) - [Video](https://www.youtube.com/watch?v=hzOaKttqUNw) 
+- [Teddy Warner's Quotes](https://theodore.net/projects/Quotes/) / [Video](https://www.youtube.com/watch?v=b8bMIGniOwY)
+- [Nutty's Printer Bot](https://nutty.gg/en-eur/products/printer-bot) / [Video](https://www.youtube.com/watch?v=hzOaKttqUNw) 
 
 ---
 
