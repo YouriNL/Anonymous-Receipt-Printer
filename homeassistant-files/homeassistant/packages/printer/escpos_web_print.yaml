@@ -208,7 +208,7 @@ script:
       - if:
           - condition: template
             value_template: >
-              {{ states('device_tracker.iruoynl') != 'home' }}
+              {{ states('device_tracker.< HA USER >') != 'home' }}
         then:
           - action: notify.mobile_app_< HA USER >
             data:
@@ -408,7 +408,7 @@ script:
       - if:
           - condition: template
             value_template: >
-              {{ states('device_tracker.iruoynl') != 'home' }}
+              {{ states('device_tracker.< HA USER >') != 'home' }}
 
         then:
 
