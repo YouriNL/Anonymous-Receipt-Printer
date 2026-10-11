@@ -13,10 +13,10 @@
 #   out
 #
 # Phone:
-#   notify.mobile_app_< HA USER >
+#   notify.mobile_app_iruoynl
 #
 # Matrix:
-#   #< CHANNEL >:< SERVER >
+#   #ha_notifications:thedreamer.nl
 ###############################################################################
 
 input_number:
@@ -66,7 +66,7 @@ script:
         required: true
         selector:
           text:
-          
+
       city:
         name: City
         required: true
@@ -88,13 +88,14 @@ script:
       - action: notify.matrix
         data:
           target:
-            - "#< CHANNEL >:< SERVER >"
+            - "#ha_notifications:thedreamer.nl"
           message: |
             🖨️ **WEB PRINT — TEXT**
 
             **Ticket:** #{{ ticket }}
             **Date:** {{ datetime }}
             **IP:** {{ ip }}
+            **City:** {{ city }}
 
             **Paper:** {{ states('sensor.td80_paper_status') }}
 
@@ -127,7 +128,7 @@ script:
           # PHONE
           #####################################################################
 
-          - action: notify.mobile_app_< HA USER >
+          - action: notify.mobile_app_iruoynl
             data:
               title: "🚨 Printer out of paper"
               message: >
@@ -143,42 +144,10 @@ script:
           - action: notify.matrix
             data:
               target:
-                - "#< CHANNEL >:< SERVER >"
+                - "#ha_notifications:thedreamer.nl"
               message: |
                 🚨 **PRINTER OUT OF PAPER**
                 Ticket **#{{ ticket }}** could not be printed.
-
-          #######################################################################
-          # WAIT FOR REFIL
-          #######################################################################
-
-          - action:
-              wait_template: "{{ is_state('sensor.td80_paper_status', 'ok') OR {{ is_state('sensor.td80_paper_status', 'low') }}"
-              timeout: "06:00:00"
-              continue_on_timeout: false
-
-          #####################################################################
-          # PRINT
-          #####################################################################
-
-          - action: escpos_printer.print_text_utf8
-            target:
-              entity_id: notify.td80
-            data:
-              text: |
-                ========================================
-                MESSAGE #{{ ticket }}
-                ========================================
-                IP: {{ ip }}
-                {{ datetime }}
-                ----------------------------------------
-
-                {{ text }}
-
-                ----------------------------------------
-              align: left
-              feed: 2
-              cut: none
 
         else:
 
@@ -192,10 +161,10 @@ script:
             data:
               text: |
                 ========================================
-                MESSAGE #{{ ticket }}
+                MESSAGE #{{ ticket }} / {{ datetime }}
                 ========================================
                 IP: {{ ip }}
-                {{ datetime }}
+                Location: {{ city }}
                 ----------------------------------------
 
                 {{ text }}
@@ -216,7 +185,7 @@ script:
 
             then:
 
-              - action: notify.mobile_app_< HA USER >
+              - action: notify.mobile_app_iruoynl
                 data:
                   title: "⚠️ Printer paper low"
                   message: >
@@ -226,7 +195,7 @@ script:
               - action: notify.matrix
                 data:
                   target:
-                    - "#< CHANNEL >:< SERVER >"
+                    - "#ha_notifications:thedreamer.nl"
                   message: |
                     ⚠️ **TD80 PAPER LOW**
                     Ticket **#{{ ticket }}** was printed.
@@ -239,9 +208,9 @@ script:
       - if:
           - condition: template
             value_template: >
-              {{ states('device_tracker.< HA USER >') != 'home' }}
+              {{ states('device_tracker.iruoynl') != 'home' }}
         then:
-          - action: notify.mobile_app_< HA USER >
+          - action: notify.mobile_app_iruoynl
             data:
               title: "🖨️ Web print received"
               message: >
@@ -303,13 +272,14 @@ script:
       - action: notify.matrix
         data:
           target:
-            - "#< CHANNEL >:< SERVER >"
+            - "#ha_notifications:thedreamer.nl"
           message: |
             🖨️ **WEB PRINT — IMAGE**
 
             **Ticket:** #{{ ticket }}
             **Date:** {{ datetime }}
             **IP:** {{ ip }}
+            **City:** {{ city }}
 
             **Paper:** {{ states('sensor.td80_paper_status') }}
 
@@ -341,7 +311,7 @@ script:
           # PHONE
           #####################################################################
 
-          - action: notify.mobile_app_< HA USER >
+          - action: notify.mobile_app_iruoynl
             data:
               title: "🚨 Printer out of paper"
               message: >
@@ -355,61 +325,10 @@ script:
           - action: notify.matrix
             data:
               target:
-                - "#< CHANNEL >:< SERVER >"
+                - "#ha_notifications:thedreamer.nl"
               message: |
                 🚨 **PRINTER OUT OF PAPER**
                 Image ticket **#{{ ticket }}** could not be printed.
-
-          #######################################################################
-          # WAIT FOR REFIL
-          #######################################################################
-
-          - action:
-              wait_template: "{{ is_state('sensor.td80_paper_status', 'ok') OR {{ is_state('sensor.td80_paper_status', 'low') }}"
-              timeout: "06:00:00"
-              continue_on_timeout: false
-
-          #######################################################################
-          # IMAGE PRINT
-          #######################################################################
-
-          - action: escpos_printer.print_text_utf8
-            target:
-              entity_id: notify.td80
-            data:
-              text: |
-                ========================================
-                WEB IMAGE #{{ ticket }} 
-                ========================================
-                IP: {{ ip }}
-                {{ datetime }}
-                ----------------------------------------
-              align: left
-              feed: 2
-
-          - action: escpos_printer.print_image
-            target:
-              entity_id: notify.td80
-            data:
-              image: "{{ image }}"
-              image_width: 576
-              rotation: 0
-              dither: floyd-steinberg
-              autocontrast: true
-              center: true
-              high_density: true
-              feed: 2
-              cut: none
-
-          - action: escpos_printer.print_text_utf8
-            target:
-              entity_id: notify.td80
-            data:
-              text: |
-                ----------------------------------------
-              align: left
-              feed: 2
-              cut: none
 
         else:
 
@@ -423,10 +342,10 @@ script:
             data:
               text: |
                 ========================================
-                WEB IMAGE #{{ ticket }} 
+                WEB IMAGE #{{ ticket }} / {{ datetime }}
                 ========================================
                 IP: {{ ip }}
-                {{ datetime }}
+                Location: {{ city }}
                 ----------------------------------------
               align: left
               feed: 2
@@ -466,7 +385,7 @@ script:
 
             then:
 
-              - action: notify.mobile_app_< HA USER >
+              - action: notify.mobile_app_iruoynl
                 data:
                   title: "⚠️ Printer paper low"
                   message: >
@@ -476,7 +395,7 @@ script:
               - action: notify.matrix
                 data:
                   target:
-                    - "#< CHANNEL >:< SERVER >"
+                    - "#ha_notifications:thedreamer.nl"
                   message: |
                     ⚠️ **TD80 PAPER LOW**
                     Image ticket **#{{ ticket }}** was printed.
@@ -489,11 +408,11 @@ script:
       - if:
           - condition: template
             value_template: >
-              {{ states('device_tracker.< HA USER >') != 'home' }}
+              {{ states('device_tracker.iruoynl') != 'home' }}
 
         then:
 
-          - action: notify.mobile_app_< HA USER >
+          - action: notify.mobile_app_iruoynl
             data:
               title: "🖨️ Web image received"
               message: >
@@ -540,7 +459,7 @@ automation:
       # PHONE
       #######################################################################
 
-      - action: notify.mobile_app_< HA USER >
+      - action: notify.mobile_app_iruoynl
         data:
           title: "🖨️ Printer paper available"
           message: >
@@ -553,7 +472,7 @@ automation:
       - action: notify.matrix
         data:
           target:
-            - "#< CHANNEL >:< SERVER >"
+            - "#ha_notifications:thedreamer.nl"
           message: |
             🖨️ **TD80 PAPER AVAILABLE**
             Paper status:
@@ -576,7 +495,7 @@ automation:
 
     action:
 
-      - action: notify.mobile_app_< HA USER >
+      - action: notify.mobile_app_iruoynl
         data:
           title: "⚠️ TD80 paper low"
           message: >
@@ -585,7 +504,7 @@ automation:
       - action: notify.matrix
         data:
           target:
-            - "#< CHANNEL >:< SERVER >"
+            - "#ha_notifications:thedreamer.nl"
           message: |
             ⚠️ **TD80 PAPER LOW**
             The thermal printer is running low on paper.
